@@ -1,0 +1,15 @@
+INFO:     Will watch for changes in these directories: ['/Users/lucascruz/Documents/GitHub/vizu_plataforma_infra']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [29723] using WatchFiles
+INFO:     Started server process [29731]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+Recebida requisição para criar novo cliente: Empresa Teste com URL Certa
+Cliente 'Empresa Teste com URL Certa' criado no SQL com ID: 2d233956-a399-4227-8a91-b4dc83abfcd2
+Conexão REST com o Qdrant Cloud estabelecida com sucesso em: https://30745685-29e6-495d-b8fc-cf67c6adbbee.us-east4-0.gcp.cloud.qdrant.io
+Carregando o modelo de embedding local: sentence-transformers/all-MiniLM-L6-v2 na CPU...
+Modelo 'sentence-transformers/all-MiniLM-L6-v2' não está em cache. Carregando na CPU...
+Serviço de Embedding pronto com o modelo 'sentence-transformers/all-MiniLM-L6-v2' (Dimensão: 384).
+Coleção '2d233956-a399-4227-8a91-b4dc83abfcd2' criada com sucesso (tamanho do vetor: 384).
+Coleção criada no Qdrant para o cliente: 2d233956-a399-4227-8a91-b4dc83abfcd2
+INFO:     127.0.0.1:63325 - "POST /v1/clientes HTTP/1.1" 201 Created

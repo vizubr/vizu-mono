@@ -1,0 +1,90 @@
+# OpenTelemetry Collector Configuration for Production (Grafana Cloud)
+# 
+# This configuration sends traces, metrics, and logs to Grafana Cloud's OTLP endpoint.
+# Required environment variables:
+#   - OTEL_EXPORTER_OTLP_ENDPOINT: Grafana Cloud OTLP gateway URL
+#   - OTEL_EXPORTER_OTLP_HEADERS: Authorization header with Basic auth token
+#
+# Documentation: https://grafana.com/docs/grafana-cloud/monitor-applications/application-observability/setup/collector/
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+processors:
+  # Batch processor for efficient data transmission
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Resource processor to add common attributes
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${ENVIRONMENT:-production}
+        action: upsert
+      - key: service.namespace
+        value: vizu
+        action: upsert
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+exporters:
+  # Grafana Cloud OTLP Exporter
+  otlphttp:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    headers:
+      Authorization: ${OTEL_EXPORTER_OTLP_HEADERS}
+    compression: gzip
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Debug exporter for local troubleshooting (can be removed in production)
+  debug:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 100
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+  
+  zpages:
+    endpoint: "0.0.0.0:55679"
+
+service:
+  extensions: [health_check, zpages]
+  
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: "0.0.0.0:8888"

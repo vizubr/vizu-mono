@@ -5,18 +5,36 @@ set -euo pipefail
 # does not cause CI to fail; it writes the findings to `artifacts/detect-secrets.json`
 # so maintainers can review and create a baseline after rotating secrets.
 
-TMP_DIR=$(mktemp -d)
-OUT_DIR="artifacts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+OUT_DIR="$REPO_ROOT/artifacts"
 mkdir -p "$OUT_DIR"
 
-python -m pip install --upgrade pip >/dev/null
-python -m pip install detect-secrets >/dev/null
+# Use venv on local (macOS / externally managed Python) or pip directly in CI
+if [ -n "${CI:-}" ]; then
+    # CI environment: pip install directly (GitHub Actions runners allow this)
+    python3 -m pip install --upgrade pip >/dev/null 2>&1
+    python3 -m pip install detect-secrets >/dev/null 2>&1
+    DETECT_SECRETS_CMD="detect-secrets"
+else
+    # Local environment: use a dedicated venv
+    VENV_DIR="${REPO_ROOT}/.secrets-venv"
+    if [ ! -d "$VENV_DIR" ]; then
+        python3 -m venv "$VENV_DIR"
+    fi
+    source "$VENV_DIR/bin/activate"
+    pip install --upgrade pip >/dev/null 2>&1
+    pip install detect-secrets >/dev/null 2>&1
+    DETECT_SECRETS_CMD="detect-secrets"
+fi
 
+cd "$REPO_ROOT"
 echo "Running detect-secrets scan..."
-detect-secrets scan --json > "$OUT_DIR/detect-secrets.json" || true
+$DETECT_SECRETS_CMD scan --json > "$OUT_DIR/detect-secrets.json" || true
 
 echo "Summary of findings:"
-python - <<'PY'
+python3 - <<'PY'
 import json,sys
 f='artifacts/detect-secrets.json'
 try:
@@ -34,5 +52,10 @@ for filename, issues in list(secrets.items())[:10]:
         print('    -', it.get('type'), 'line', it.get('line_number'))
 
 PY
+
+# Deactivate venv if we activated one
+if [ -z "${CI:-}" ]; then
+    deactivate 2>/dev/null || true
+fi
 
 echo "Detect-secrets scan complete; results in $OUT_DIR/detect-secrets.json"

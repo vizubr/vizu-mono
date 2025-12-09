@@ -1,1 +1,4 @@
 .env
+# Google Cloud service account credentials (never commit real keys!)
+*.json
+!*example*.json

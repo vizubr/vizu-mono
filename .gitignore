@@ -1,8 +1,14 @@
 # Ambientes Virtuais
 .venv/
 venv/
+**/.venv/
+.secrets-venv/
 
-
+# Google Cloud / Service Account credentials (never commit real keys!)
+**/analytics-big-query*.json
+**/service-account*.json
+**/gcp-credentials.json
+!**/*example*.json
 
 # Arquivos de Configuração de IDEs
 .vscode/

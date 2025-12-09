@@ -21,21 +21,30 @@ from .health import (
     check_http_endpoint,
 )
 
-# Export Datadog integration (lazy import to avoid dependency if not used)
-def setup_datadog(service_name: str, **kwargs):
-    """Initialize Datadog APM. See datadog.py for full docs."""
-    from .datadog import setup_datadog as _setup_datadog
-    return _setup_datadog(service_name, **kwargs)
+# Export Grafana/observability integration
+from .grafana import (
+    setup_grafana_logging,
+    create_grafana_logger,
+    record_metric,
+    is_grafana_enabled,
+    GrafanaLokiFormatter,
+)
 
 __all__ = [
     "setup_telemetry",
     "setup_structured_logging",
-    "setup_datadog",
+    # Health
     "create_health_router",
     "check_database_url",
     "check_redis_url",
     "check_qdrant_url",
     "check_http_endpoint",
+    # Grafana/Logging
+    "setup_grafana_logging",
+    "create_grafana_logger",
+    "record_metric",
+    "is_grafana_enabled",
+    "GrafanaLokiFormatter",
 ]
 
 logger = logging.getLogger(__name__)

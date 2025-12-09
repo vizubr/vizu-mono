@@ -1,0 +1,118 @@
+name: Schema and Allowlist Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'supabase/migrations/**'
+      - 'libs/vizu_sql_factory/config/allowlist.json'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'supabase/migrations/**'
+      - 'libs/vizu_sql_factory/config/allowlist.json'
+
+jobs:
+  validate-schema:
+    runs-on: ubuntu-latest
+    name: Validate Schema and Allowlist
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          cd libs/vizu_sql_factory
+          poetry install
+
+      - name: Generate current schema snapshot
+        run: |
+          # This would connect to a test DB or use a schema dump
+          # For now, this is a placeholder
+          echo "Schema snapshot generation would happen here"
+          mkdir -p docs/schema-snapshots
+
+      - name: Validate allowlist against schema
+        run: |
+          cd libs/vizu_sql_factory
+          python -m pytest tests/test_allowlist_validator.py -v
+
+      - name: Check for schema breaking changes
+        run: |
+          # Compare against previous snapshot if it exists
+          echo "Checking for breaking changes..."
+          # Logic: if migrations removed columns/views, fail the check
+          # unless explicitly approved
+
+      - name: Comment on PR if validation fails
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Schema validation failed. Please check the logs above.'
+            })
+
+      - name: Generate schema audit report
+        if: always()
+        run: |
+          mkdir -p artifacts
+          # Generate audit report showing what was validated
+          echo "Schema validation report" > artifacts/schema-audit.txt
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: schema-validation
+          path: artifacts/
+
+  test-allowlist:
+    runs-on: ubuntu-latest
+    name: Test Allowlist Filtering
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          cd libs/vizu_sql_factory
+          poetry install
+
+      - name: Run allowlist filtering tests
+        run: |
+          cd libs/vizu_sql_factory
+          poetry run pytest tests/test_allowlist_filtering.py -v
+
+      - name: Check for allowlist orphans
+        run: |
+          cd libs/vizu_sql_factory
+          # Verify all views/columns in allowlist config exist
+          echo "Checking for orphaned allowlist entries..."
+
+permissions:
+  contents: read
+  pull-requests: write

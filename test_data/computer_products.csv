@@ -1,0 +1,42 @@
+product_id,product_name,category,price_usd,stock_quantity,description,manufacturer,warranty_months
+1,Dell XPS 13 Laptop,Laptops,1299.99,15,Ultra-portable 13.4 inch Full HD laptop with Intel i7,Dell,24
+2,Apple MacBook Pro 14,Laptops,1999.99,8,Powerful M3 Pro laptop for professionals,Apple,12
+3,Lenovo ThinkPad X1,Laptops,1149.99,22,Business class laptop with excellent keyboard,Lenovo,24
+4,ASUS ROG Gaming,Laptops,1899.99,10,High-performance gaming laptop with RTX 4080,ASUS,24
+5,HP Pavilion 15,Laptops,649.99,35,Budget-friendly everyday laptop,HP,12
+6,Samsung Monitor 27 4K,Monitors,349.99,18,27-inch 4K UHD display for creative work,Samsung,36
+7,LG UltraWide,Monitors,499.99,12,34-inch curved ultrawide monitor,LG,36
+8,Dell S2721DGF,Monitors,279.99,25,1440p 165Hz gaming monitor,Dell,36
+9,BenQ PD2700U,Monitors,599.99,7,Professional 2560x1440 color-accurate display,BenQ,36
+10,NVIDIA RTX 4090,Graphics Cards,1999.99,5,Flagship gaming GPU with 24GB memory,NVIDIA,36
+11,AMD Radeon RX 7900 XTX,Graphics Cards,899.99,11,High-end RDNA 3 architecture GPU,AMD,36
+12,NVIDIA RTX 4070,Graphics Cards,699.99,18,Mid-range gaming GPU 12GB VRAM,NVIDIA,36
+13,Intel Arc A770,Graphics Cards,349.99,14,Competitive mid-range Intel GPU,Intel,36
+14,Corsair K95 Platinum,Keyboards,199.99,20,Premium mechanical keyboard with RGB,Corsair,24
+15,Logitech MX Keys,Keyboards,99.99,45,Wireless ergonomic keyboard for productivity,Logitech,24
+16,Razer DeathStalker V2,Keyboards,149.99,16,Low-profile mechanical gaming keyboard,Razer,24
+17,SteelSeries Apex 7,Keyboards,169.99,22,Mechanical keyboard with OLED screen,SteelSeries,24
+18,Razer DeathAdder V3,Mice,69.99,38,Lightweight competitive gaming mouse,Razer,24
+19,Logitech MX Master 3S,Mice,99.99,32,Premium productivity mouse with advanced scrolling,Logitech,24
+20,SteelSeries Rival 600,Mice,89.99,28,Dual-sensor gaming mouse,SteelSeries,24
+21,Corsair M65 RGB Elite,Mice,79.99,25,Aluminum frame gaming mouse,Corsair,24
+22,Samsung 990 Pro SSD,Storage,129.99,50,2TB NVMe SSD with 7400MB/s speed,Samsung,60
+23,WD Black SN850X,Storage,119.99,42,2TB gaming SSD,Western Digital,60
+24,Sabrent Rocket 4 Plus,Storage,99.99,38,2TB fast NVMe SSD,Sabrent,60
+25,Crucial P5 Plus,Storage,89.99,55,2TB reliable SSD,Crucial,60
+26,Corsair RM1000x,Power Supplies,179.99,16,1000W Gold-rated modular PSU,Corsair,120
+27,EVGA SuperNOVA 850W,Power Supplies,129.99,22,850W Gold-rated power supply,EVGA,120
+28,Seasonic Focus 750W,Power Supplies,109.99,31,750W Platinum-rated PSU,Seasonic,120
+29,be quiet Pure Power 600W,Power Supplies,99.99,18,600W Bronze-rated budget PSU,be quiet,120
+30,Fractal Design North,Cases,199.99,12,Minimalist silent PC case,Fractal Design,24
+31,Lian Li Lancool 216,Cases,59.99,48,Budget ATX gaming case,Lian Li,24
+32,NZXT H7 Flow,Cases,149.99,20,Airflow-optimized mid-tower case,NZXT,24
+33,Corsair 5000T RGB,Cases,299.99,8,Premium enthusiast case with RGB lighting,Corsair,24
+34,Noctua NH-D15,CPU Coolers,99.99,25,Premium dual-tower air cooler,Noctua,120
+35,be quiet Dark Rock Pro 4,CPU Coolers,89.99,30,High-performance silent cooler,be quiet,120
+36,Corsair H150i Elite,CPU Coolers,179.99,14,360mm AIO liquid cooler,Corsair,120
+37,ARCTIC Freezer 34 eSports,CPU Coolers,39.99,52,Budget tower air cooler,ARCTIC,120
+38,Intel Core i9-13900K,CPUs,589.99,9,Top-tier 24-core processor,Intel,36
+39,AMD Ryzen 9 7950X,CPUs,549.99,11,High-end 16-core processor,AMD,36
+40,Intel Core i7-13700K,CPUs,419.99,17,High-performance 16-core processor,Intel,36
+41,AMD Ryzen 7 7700X,CPUs,399.99,19,Mid-high range 8-core processor,AMD,36

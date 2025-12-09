@@ -5,92 +5,80 @@ This document covers deploying Vizu services to Google Cloud Run with proper sec
 ## Prerequisites
 
 1. **GCP Project** with billing enabled
-2. **gcloud CLI** authenticated: `gcloud auth login`
+2. **gcloud CLI** authenticated (or use GCP Console web UI)
 3. **Artifact Registry** repository for Docker images
 4. **Secret Manager** API enabled
 5. **Cloud Run** API enabled
+6. **Grafana Cloud** account for observability
 
 ## Initial Setup (One-Time)
 
-### 1. Create GCP Resources
+### 1. Create GCP Resources via Console
 
-```bash
-# Set project
-export PROJECT_ID=your-project-id
-export REGION=us-central1
-gcloud config set project $PROJECT_ID
+If you don't have `gcloud` CLI, use the GCP Console:
 
-# Enable required APIs
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  secretmanager.googleapis.com \
-  cloudresourcemanager.googleapis.com
+1. **Enable APIs**: Go to APIs & Services → Enable APIs
+   - Cloud Run API
+   - Artifact Registry API  
+   - Secret Manager API
 
-# Create Artifact Registry repository
-gcloud artifacts repositories create vizu-images \
-  --repository-format=docker \
-  --location=$REGION \
-  --description="Vizu service images"
-```
+2. **Create Artifact Registry**:
+   - Go to Artifact Registry → Create Repository
+   - Name: `vizu-images`
+   - Format: Docker
+   - Location: `southamerica-east1` (São Paulo)
 
-### 2. Create Service Accounts
+3. **Create Service Accounts**:
+   - Go to IAM & Admin → Service Accounts
+   - Create one for CI/CD (e.g., `github-actions`)
+   - Create one per service (e.g., `cloudrun-atendente-core`)
 
-```bash
-# Create service account for Cloud Run services
-for SERVICE in atendente_core clients_api tool_pool_api analytics_api file_upload_api; do
-  gcloud iam service-accounts create cloudrun-${SERVICE} \
-    --display-name="Cloud Run ${SERVICE}"
-done
+4. **Grant Permissions**:
+   - CI service account needs: `Artifact Registry Writer`, `Cloud Run Admin`, `Secret Manager Accessor`
+   - Service accounts need: `Secret Manager Secret Accessor`
 
-# Grant Secret Manager access
-for SERVICE in atendente_core clients_api tool_pool_api analytics_api file_upload_api; do
-  gcloud projects add-iam-policy-binding $PROJECT_ID \
-    --member="serviceAccount:cloudrun-${SERVICE}@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor"
-done
-```
+### 2. Create Secrets in Secret Manager
 
-### 3. Create Secrets
-
-Create a `.env.production` file with real values (DO NOT commit this):
-
-```bash
-cp .env.production.example .env.production
-# Edit .env.production with actual secret values
-```
-
-Then run the secret creation script:
-
-```bash
-chmod +x scripts/create_secrets.sh
-./scripts/create_secrets.sh $PROJECT_ID .env.production
-```
-
-Verify secrets were created:
-
-```bash
-gcloud secrets list --project=$PROJECT_ID
-```
-
-### 4. Configure GitHub Actions
-
-Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+Go to Security → Secret Manager and create these secrets:
 
 | Secret Name | Description |
 |-------------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_KEY` | Supabase anon/public key |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key |
+| `QDRANT_URL` | Qdrant Cloud URL |
+| `QDRANT_API_KEY` | Qdrant API key |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse public key |
+| `LANGFUSE_SECRET_KEY` | Langfuse secret key |
+| `GRAFANA_OTLP_HEADERS` | `Authorization=Basic <base64>` |
+| `OPENAI_API_KEY` | OpenAI API key (optional) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
+| `GOOGLE_API_KEY` | Google AI API key |
+
+### 3. Configure GitHub Repository
+
+Go to GitHub → Repository → Settings → Secrets and variables → Actions
+
+**Secrets** (sensitive):
+| Secret | Description |
+|--------|-------------|
 | `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_SA_KEY` | Service account JSON key for CI/CD |
-| `STAGING_ATENDENTE_URL` | Staging service URL (after first deploy) |
-| `PRODUCTION_ATENDENTE_URL` | Production service URL (after first deploy) |
+| `GCP_SA_KEY` | JSON key for CI service account |
 
-Add these variables:
-
-| Variable Name | Value |
-|---------------|-------|
-| `GCP_REGION` | `us-central1` |
-| `GAR_LOCATION` | `us-central1` |
+**Variables** (non-sensitive):
+| Variable | Value |
+|----------|-------|
+| `GCP_REGION` | `southamerica-east1` |
+| `GAR_LOCATION` | `southamerica-east1` |
 | `GAR_REPOSITORY` | `vizu-images` |
+
+### 4. Download Service Account Key for CI
+
+1. Go to IAM & Admin → Service Accounts
+2. Click on your CI service account
+3. Keys → Add Key → Create new key → JSON
+4. Copy the entire JSON content to GitHub secret `GCP_SA_KEY`
 
 ## Deployment
 
@@ -107,41 +95,38 @@ Pushes to `main` automatically deploy to staging:
 
 ### Manual Deployment
 
-Trigger a manual deployment via GitHub Actions:
+Trigger via GitHub Actions:
 
 1. Go to Actions → "Deploy to Cloud Run"
 2. Click "Run workflow"
 3. Select service and environment
 4. Click "Run workflow"
 
-Or deploy directly with gcloud:
+## Monitoring with Grafana Cloud
 
-```bash
-# Build and push image
-docker build -f services/atendente_core/Dockerfile -t $REGION-docker.pkg.dev/$PROJECT_ID/vizu-images/atendente_core:latest .
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/vizu-images/atendente_core:latest
+### OTLP Configuration
 
-# Deploy to Cloud Run
-gcloud run deploy atendente_core-production \
-  --image=$REGION-docker.pkg.dev/$PROJECT_ID/vizu-images/atendente_core:latest \
-  --region=$REGION \
-  --platform=managed \
-  --set-secrets="DATABASE_URL=DATABASE_URL:latest,..." \
-  --service-account=cloudrun-atendente_core@$PROJECT_ID.iam.gserviceaccount.com
-```
+Services send traces and metrics to Grafana Cloud via OTLP:
 
-## Monitoring
+- **Endpoint**: `https://otlp-gateway-prod-sa-east-1.grafana.net/otlp`
+- **Auth**: Basic auth with your Grafana Cloud instance ID and API key
 
-### Datadog Integration
+### Setting up Grafana Dashboards
 
-Services are configured to send metrics, traces, and logs to Datadog when `DD_API_KEY` is set.
+1. Go to Grafana Cloud → Dashboards
+2. Import or create dashboards for:
+   - Service health overview (from OTLP metrics)
+   - Request latency (p50, p95, p99)
+   - Error rates by service
+   - Trace explorer (Tempo)
 
-Key dashboards to set up:
-- Service health overview
-- Request latency (p50, p95, p99)
-- Error rates by service
-- Database connection pool metrics
-- Redis memory usage
+### Logs with Loki
+
+Services output JSON logs compatible with Loki. To collect:
+
+1. Set up Cloud Run log routing to Loki, OR
+2. Use Grafana Agent in sidecar mode, OR
+3. View logs directly in Cloud Run console
 
 ### Health Endpoints
 

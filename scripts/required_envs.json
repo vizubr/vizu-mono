@@ -1,0 +1,34 @@
+{
+    "global": [
+        "DATABASE_URL",
+        "CREDENTIALS_ENCRYPTION_KEY",
+        "SUPABASE_SERVICE_KEY",
+        "SUPABASE_JWT_SECRET",
+        "QDRANT_API_KEY",
+        "LANGFUSE_SECRET_KEY"
+    ],
+    "tool_pool_api": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "QDRANT_API_KEY",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "atendente_core": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "clients_api": [
+        "DATABASE_URL",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "data_ingestion_api": [
+        "DATABASE_URL",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "support_agent": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ]
+}

@@ -1,0 +1,200 @@
+{
+    "version": "1.0.0",
+    "description": "Role-based view and column allowlist for text-to-SQL queries",
+    "default_max_rows": 10000,
+    "tenants": {
+        "test-tenant-001": {
+            "name": "Test Organization 1",
+            "roles": {
+                "analyst": {
+                    "views": [
+                        "customers_view",
+                        "data_sources_summary_view",
+                        "tenant_config_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "id_externo",
+                            "nome",
+                            "created_at"
+                        ],
+                        "data_sources_summary_view": [
+                            "id",
+                            "tipo_fonte",
+                            "caminho",
+                            "created_at"
+                        ],
+                        "tenant_config_view": [
+                            "horario_funcionamento",
+                            "ferramenta_rag_habilitada",
+                            "ferramenta_sql_habilitada"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT",
+                        "SUM",
+                        "AVG",
+                        "MIN",
+                        "MAX"
+                    ],
+                    "max_rows": 10000,
+                    "max_execution_time_seconds": 30,
+                    "join_paths": [
+                        {
+                            "from_view": "customers_view",
+                            "to_view": "data_sources_summary_view",
+                            "on": "cliente_vizu_id",
+                            "allowed": false
+                        }
+                    ]
+                },
+                "viewer": {
+                    "views": [
+                        "customers_view",
+                        "tenant_config_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "nome"
+                        ],
+                        "tenant_config_view": [
+                            "horario_funcionamento"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT"
+                    ],
+                    "max_rows": 1000,
+                    "max_execution_time_seconds": 15,
+                    "join_paths": []
+                },
+                "admin": {
+                    "views": [
+                        "customers_view",
+                        "data_sources_summary_view",
+                        "service_credentials_list_view",
+                        "tenant_config_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "*"
+                        ],
+                        "data_sources_summary_view": [
+                            "*"
+                        ],
+                        "service_credentials_list_view": [
+                            "id",
+                            "nome_servico",
+                            "is_active"
+                        ],
+                        "tenant_config_view": [
+                            "*"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT",
+                        "SUM",
+                        "AVG",
+                        "MIN",
+                        "MAX"
+                    ],
+                    "max_rows": 100000,
+                    "max_execution_time_seconds": 60,
+                    "join_paths": []
+                }
+            }
+        },
+        "test-tenant-002": {
+            "name": "Test Organization 2",
+            "roles": {
+                "analyst": {
+                    "views": [
+                        "customers_view",
+                        "data_sources_summary_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "id_externo",
+                            "nome"
+                        ],
+                        "data_sources_summary_view": [
+                            "id",
+                            "tipo_fonte",
+                            "caminho"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT",
+                        "SUM"
+                    ],
+                    "max_rows": 5000,
+                    "max_execution_time_seconds": 30,
+                    "join_paths": []
+                },
+                "viewer": {
+                    "views": [
+                        "customers_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "nome"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT"
+                    ],
+                    "max_rows": 500,
+                    "max_execution_time_seconds": 10,
+                    "join_paths": []
+                }
+            }
+        },
+        "default": {
+            "name": "Default Allowlist Template",
+            "roles": {
+                "analyst": {
+                    "views": [
+                        "customers_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "id_externo",
+                            "nome",
+                            "created_at"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT",
+                        "SUM",
+                        "AVG"
+                    ],
+                    "max_rows": 10000,
+                    "max_execution_time_seconds": 30,
+                    "join_paths": []
+                },
+                "viewer": {
+                    "views": [
+                        "customers_view"
+                    ],
+                    "columns": {
+                        "customers_view": [
+                            "id",
+                            "nome"
+                        ]
+                    },
+                    "aggregates": [
+                        "COUNT"
+                    ],
+                    "max_rows": 1000,
+                    "max_execution_time_seconds": 15,
+                    "join_paths": []
+                }
+            }
+        }
+    }
+}

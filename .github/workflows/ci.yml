@@ -92,25 +92,48 @@ jobs:
             echo "No e2e script found; skipping e2e"
 
   publish-image:
-    name: Publish image (manual)
+    name: Publish to GHCR
     runs-on: ubuntu-latest
     needs: [docker-build]
     if: github.ref == 'refs/heads/main'
-    permissions: write-all
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      - name: Login to registry
-        if: secrets.CI_REGISTRY && secrets.CI_REGISTRY_USERNAME && secrets.CI_REGISTRY_PASSWORD
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and push core services
         run: |
-          echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$CI_REGISTRY_USERNAME" --password-stdin
-        env:
-          CI_REGISTRY: ${{ secrets.CI_REGISTRY }}
-          CI_REGISTRY_USERNAME: ${{ secrets.CI_REGISTRY_USERNAME }}
-          CI_REGISTRY_PASSWORD: ${{ secrets.CI_REGISTRY_PASSWORD }}
-      - name: Tag & push images (example)
-        if: secrets.CI_REGISTRY
-        run: |
-          # Tag images with commit SHA and push to protected registry
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          docker tag ci-check-tool_pool_api:latest ${{ secrets.CI_REGISTRY }}/tool_pool_api:${COMMIT_SHA}
-          docker push ${{ secrets.CI_REGISTRY }}/tool_pool_api:${COMMIT_SHA}
+          REGISTRY="ghcr.io/${{ github.repository_owner }}"
+          
+          for service in atendente_core clients_api tool_pool_api; do
+            echo "Building $service..."
+            docker build \
+              -f services/$service/Dockerfile \
+              -t $REGISTRY/vizu-$service:$COMMIT_SHA \
+              -t $REGISTRY/vizu-$service:latest \
+              .
+            
+            echo "Pushing $service..."
+            docker push $REGISTRY/vizu-$service:$COMMIT_SHA
+            docker push $REGISTRY/vizu-$service:latest
+          done
+          
+          echo "## 🐳 Published Images" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Image |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| atendente_core | \`$REGISTRY/vizu-atendente_core:$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| clients_api | \`$REGISTRY/vizu-clients_api:$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| tool_pool_api | \`$REGISTRY/vizu-tool_pool_api:$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+

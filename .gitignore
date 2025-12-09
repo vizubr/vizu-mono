@@ -17,7 +17,8 @@ venv/
 # Arquivos de ambiente
 .env
 *.env.local
-
+.env.production
+.env.prod
 
 # Ignorar arquivos de sistema do macOS
 # Arquivos de Sistema do macOS

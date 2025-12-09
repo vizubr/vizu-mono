@@ -1,0 +1,114 @@
+name: Deploy to DigitalOcean
+
+on:
+  workflow_run:
+    workflows: ["Build & Push to GitHub Container Registry"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/vizu
+
+jobs:
+  deploy:
+    name: Deploy to DigitalOcean Droplet
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Droplet
+        env:
+          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+          DROPLET_USER: ${{ secrets.DROPLET_USER || 'vizu' }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/vizu' }}
+        run: |
+          # SSH into droplet and deploy
+          ssh -i ~/.ssh/deploy_key ${DROPLET_USER}@${DROPLET_IP} << 'ENDSSH'
+            set -e
+            
+            cd ${{ env.DEPLOY_PATH }}
+            
+            echo "📥 Pulling latest code..."
+            git pull origin main
+            
+            echo "🔐 Logging into GitHub Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            echo "📦 Pulling latest images..."
+            docker compose -f docker-compose.prod.yml pull
+            
+            echo "🚀 Restarting services..."
+            docker compose -f docker-compose.prod.yml up -d
+            
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            echo "✅ Deployment complete!"
+            docker compose -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: Health Check
+        env:
+          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+          DROPLET_USER: ${{ secrets.DROPLET_USER || 'vizu' }}
+        run: |
+          # Wait for services to start
+          sleep 30
+          
+          # Run health checks via SSH
+          ssh -i ~/.ssh/deploy_key ${DROPLET_USER}@${DROPLET_IP} << 'ENDSSH'
+            cd /opt/vizu
+            
+            echo "🏥 Running health checks..."
+            
+            # Check each service
+            services=("atendente_core:8000" "clients_api:8000" "tool_pool_api:9000")
+            
+            for svc in "${services[@]}"; do
+              name="${svc%%:*}"
+              port="${svc##*:}"
+              
+              if docker exec "vizu_${name}" curl -sf "http://localhost:${port}/health" > /dev/null 2>&1; then
+                echo "✅ ${name} is healthy"
+              else
+                echo "⚠️ ${name} health check failed"
+              fi
+            done
+          ENDSSH
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Droplet**: ${{ secrets.DROPLET_IP }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment failed! Check logs above."
+          # Add Slack/Discord notification here if needed

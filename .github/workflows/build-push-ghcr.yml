@@ -1,0 +1,177 @@
+name: Build & Push to GitHub Container Registry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+      - 'libs/**'
+      - 'docker-compose.prod.yml'
+      - '.github/workflows/build-push-ghcr.yml'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to build (or "all")'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - atendente_core
+          - clients_api
+          - tool_pool_api
+          - analytics_api
+          - data_ingestion_api
+          - clientes_finais_api
+          - embedding_service
+          - vendas_agent
+          - support_agent
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/vizu
+
+jobs:
+  # =========================================================================
+  # Determine which services to build
+  # =========================================================================
+  determine-services:
+    name: Determine Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-services.outputs.services }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine services to build
+        id: set-services
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.service }}" != "all" ]; then
+            echo 'services=["${{ inputs.service }}"]' >> $GITHUB_OUTPUT
+          else
+            # Detect changed services from git diff
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E '^services/|^libs/' | cut -d'/' -f2 | sort -u || true)
+            else
+              CHANGED=""
+            fi
+            
+            SERVICES="[]"
+            LIB_CHANGED=false
+            
+            for item in $CHANGED; do
+              case $item in
+                atendente_core|clients_api|tool_pool_api|analytics_api|data_ingestion_api|clientes_finais_api|embedding_service|vendas_agent|support_agent)
+                  SERVICES=$(echo $SERVICES | jq -c ". + [\"$item\"] | unique")
+                  ;;
+                vizu_*|file_upload_api|file_processing_worker)
+                  LIB_CHANGED=true
+                  ;;
+              esac
+            done
+            
+            # If libs changed, rebuild core services
+            if [ "$LIB_CHANGED" == "true" ]; then
+              SERVICES='["atendente_core","clients_api","tool_pool_api","analytics_api","vendas_agent","support_agent"]'
+            fi
+            
+            # Default to core services if nothing detected or on workflow_dispatch all
+            if [ "$SERVICES" == "[]" ] || [ "${{ inputs.service }}" == "all" ]; then
+              SERVICES='["atendente_core","clients_api","tool_pool_api","analytics_api","embedding_service","vendas_agent","support_agent"]'
+            fi
+            
+            echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log build plan
+        run: |
+          echo "## Build Plan" >> $GITHUB_STEP_SUMMARY
+          echo "- Services: ${{ steps.set-services.outputs.services }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
+  # =========================================================================
+  # Build and push images to GitHub Container Registry
+  # =========================================================================
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [determine-services]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.determine-services.outputs.services) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          subject-digest: ${{ steps.meta.outputs.digest }}
+          push-to-registry: true
+
+  # =========================================================================
+  # Summary job
+  # =========================================================================
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🐳 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status | Image |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          
+          # This is a simplified summary - in production you'd parse job results
+          echo "| All services | ${{ needs.build-and-push.result }} | ghcr.io/${{ github.repository_owner }}/vizu-* |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Images" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository_owner }}/vizu-atendente_core:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository_owner }}/vizu-clients_api:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository_owner }}/vizu-tool_pool_api:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

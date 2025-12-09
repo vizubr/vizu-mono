@@ -1,0 +1,316 @@
+# ===============================================
+# VIZU Production Docker Compose
+# For DigitalOcean Droplet deployment
+# ===============================================
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - .env.production file with all required secrets
+#   - External services: Supabase, Qdrant Cloud, Grafana Cloud
+#   - Logged into GHCR: echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+#
+# Image Registry:
+#   Images are pulled from GitHub Container Registry (ghcr.io)
+#   Set GHCR_OWNER in .env.production (default: vizubr)
+# ===============================================
+
+x-common-env: &common-env
+  # Database (Supabase)
+  DATABASE_URL: ${DATABASE_URL}
+  SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_KEY: ${SUPABASE_KEY}
+  SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+  DB_MODE: supabase
+  
+  # Qdrant Cloud
+  QDRANT_URL: ${QDRANT_URL}
+  QDRANT_API_KEY: ${QDRANT_API_KEY}
+  
+  # Embedding service (internal)
+  EMBEDDING_SERVICE_URL: http://embedding_service:11435
+  
+  # Internal API base
+  BASE_URL: "http://clients_api:8000/api/v1"
+  
+  # Grafana Cloud OTLP (direct export, no local collector)
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS}
+  OTEL_SERVICE_NAME: vizu-prod
+
+x-atendente-env: &atendente-env
+  # LLM Provider config
+  LLM_PROVIDER: ${LLM_PROVIDER:-google}
+  
+  # Google AI
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+  
+  # OpenAI (backup)
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  
+  # Anthropic (backup)
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  
+  # Langfuse Observability
+  LANGFUSE_HOST: ${LANGFUSE_HOST:-https://us.cloud.langfuse.com}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+
+x-restart-policy: &restart-policy
+  restart: unless-stopped
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # =========================================
+  # CORE APPLICATION SERVICES
+  # =========================================
+  # Images can be pulled from GHCR or built locally
+  # To use GHCR: set USE_GHCR=true in .env.production
+  # To build locally: leave USE_GHCR unset or false
+  # =========================================
+
+  atendente_core:
+    container_name: vizu_atendente_core
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-atendente_core:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/atendente_core/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: [*common-env, *atendente-env]
+      PYTHONPATH: /app/services/atendente_core/src
+      USE_LOCAL_DB: "false"
+    ports:
+      - "127.0.0.1:8003:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    depends_on:
+      embedding_service:
+        condition: service_healthy
+
+  clients_api:
+    container_name: vizu_clients_api
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-clients_api:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/clients_api/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: *common-env
+      PYTHONPATH: /app/src:/app/libs/vizu_db_connector/src:/app/libs/vizu_models/src
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+    ports:
+      - "127.0.0.1:8005:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  clientes_finais_api:
+    container_name: vizu_clientes_finais_api
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-clientes_finais_api:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/clientes_finais_api/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: *common-env
+      PYTHONPATH: /home/appuser/app/clientes_finais_api:/home/appuser/app/libs/vizu_models/src
+    ports:
+      - "127.0.0.1:8007:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  tool_pool_api:
+    container_name: vizu_tool_pool_api
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-tool_pool_api:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/tool_pool_api/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: [*common-env, *atendente-env]
+      PYTHONPATH: /app/services/tool_pool_api/src
+      MCP_AUTH_GOOGLE_CLIENT_ID: ${MCP_AUTH_GOOGLE_CLIENT_ID:-}
+      MCP_AUTH_GOOGLE_CLIENT_SECRET_DEV: ${MCP_AUTH_GOOGLE_CLIENT_SECRET_DEV:-}
+      MCP_AUTH_BASE_URL: ${MCP_AUTH_BASE_URL:-}
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-}
+      DOCKER_MCP_ENABLED: "false"
+    ports:
+      - "127.0.0.1:8006:9000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+
+  analytics_api:
+    container_name: vizu_analytics_api
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-analytics_api:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/analytics_api/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: *common-env
+      PYTHONPATH: /app/src
+    ports:
+      - "127.0.0.1:8004:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  data_ingestion_api:
+    container_name: vizu_data_ingestion_api
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-data_ingestion_api:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/data_ingestion_api/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: *common-env
+      PYTHONPATH: /app/src:/app/libs
+    ports:
+      - "127.0.0.1:8008:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+
+  # =========================================
+  # AGENT SERVICES
+  # =========================================
+
+  vendas_agent:
+    container_name: vizu_vendas_agent
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-vendas_agent:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/vendas_agent/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: [*common-env, *atendente-env]
+      PYTHONPATH: /app/src
+      MCP_SERVER_URL: http://tool_pool_api:9000/mcp/
+      USE_LOCAL_DB: "false"
+    ports:
+      - "127.0.0.1:8009:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    depends_on:
+      tool_pool_api:
+        condition: service_healthy
+
+  support_agent:
+    container_name: vizu_support_agent
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-support_agent:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/support_agent/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      <<: [*common-env, *atendente-env]
+      PYTHONPATH: /app/src
+      MCP_SERVER_URL: http://tool_pool_api:9000/mcp/
+      USE_LOCAL_DB: "false"
+    ports:
+      - "127.0.0.1:8010:8000"
+    <<: [*restart-policy, *logging]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    depends_on:
+      tool_pool_api:
+        condition: service_healthy
+
+  # =========================================
+  # SUPPORTING SERVICES
+  # =========================================
+
+  embedding_service:
+    container_name: vizu_embedding_service
+    platform: linux/amd64
+    image: ${USE_GHCR:+ghcr.io/${GHCR_OWNER:-vizubr}/vizu-embedding_service:${IMAGE_TAG:-latest}}
+    build:
+      context: .
+      dockerfile: ./services/embedding_service/Dockerfile
+    env_file:
+      - .env.production
+    environment:
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE:-384}
+      EMBEDDING_MODEL_DEVICE: cpu
+    ports:
+      - "127.0.0.1:11435:11435"
+    <<: [*restart-policy, *logging]
+    volumes:
+      # Persist HuggingFace models
+      - huggingface_cache:/home/appuser/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11435/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # =========================================
+  # REVERSE PROXY (Caddy - auto HTTPS)
+  # =========================================
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: vizu_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    <<: [*restart-policy, *logging]
+    depends_on:
+      - atendente_core
+      - clients_api
+
+volumes:
+  huggingface_cache:
+  caddy_data:
+  caddy_config:
+
+networks:
+  default:
+    name: vizu_network

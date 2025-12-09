@@ -1,249 +1,386 @@
-# Production Deployment Guide
+# Production Deployment Guide - DigitalOcean
 
-This document covers deploying Vizu services to Google Cloud Run with proper secret management, monitoring, and operational procedures.
+This document covers deploying Vizu services to a DigitalOcean Droplet using Docker Compose with automatic HTTPS via Caddy.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DigitalOcean Droplet                          │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │                      Docker Network                          │ │
+│  │                                                              │ │
+│  │   ┌─────────┐      ┌──────────────────┐                     │ │
+│  │   │  Caddy  │──────│  atendente_core  │                     │ │
+│  │   │  :80    │      │  :8000           │                     │ │
+│  │   │  :443   │──────│  clients_api     │                     │ │
+│  │   └─────────┘      │  :8000           │                     │ │
+│  │        │           │  tool_pool_api   │                     │ │
+│  │        │           │  :9000           │                     │ │
+│  │        │           │  ...other svcs   │                     │ │
+│  │        │           └──────────────────┘                     │ │
+│  │        │                    │                                │ │
+│  │        │           ┌────────┴────────┐                      │ │
+│  │        │           │ embedding_svc   │                      │ │
+│  │        │           │ :11435          │                      │ │
+│  │        │           └─────────────────┘                      │ │
+│  └────────┴─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+           │                    │                     │
+           ▼                    ▼                     ▼
+    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+    │   Supabase   │    │ Qdrant Cloud │    │Grafana Cloud │
+    │   (DB)       │    │  (Vector)    │    │  (OTLP)      │
+    └──────────────┘    └──────────────┘    └──────────────┘
+```
 
 ## Prerequisites
 
-1. **GCP Project** with billing enabled
-2. **gcloud CLI** authenticated (or use GCP Console web UI)
-3. **Artifact Registry** repository for Docker images
-4. **Secret Manager** API enabled
-5. **Cloud Run** API enabled
-6. **Grafana Cloud** account for observability
+1. **DigitalOcean Account** with a Droplet (Ubuntu 22.04+)
+   - Recommended: 4GB RAM / 2 vCPUs minimum
+   - 8GB RAM / 4 vCPUs for production traffic
 
-## Initial Setup (One-Time)
+2. **Domain Name** pointing to your Droplet IP
+   - Configure DNS A record: `api.yourdomain.com` → `<droplet-ip>`
 
-### 1. Create GCP Resources via Console
+3. **External Services** (already configured):
+   - Supabase project (database)
+   - Qdrant Cloud cluster (vector search)
+   - Grafana Cloud account (observability)
+   - Langfuse account (LLM tracing)
 
-If you don't have `gcloud` CLI, use the GCP Console:
+## Quick Start
 
-1. **Enable APIs**: Go to APIs & Services → Enable APIs
-   - Cloud Run API
-   - Artifact Registry API  
-   - Secret Manager API
+### 1. Create a Droplet
 
-2. **Create Artifact Registry**:
-   - Go to Artifact Registry → Create Repository
-   - Name: `vizu-images`
-   - Format: Docker
-   - Location: `southamerica-east1` (São Paulo)
+```bash
+# Via doctl CLI (optional)
+doctl compute droplet create vizu-prod \
+  --size s-2vcpu-4gb \
+  --image ubuntu-22-04-x64 \
+  --region nyc1 \
+  --ssh-keys <your-ssh-key-fingerprint>
+```
 
-3. **Create Service Accounts**:
-   - Go to IAM & Admin → Service Accounts
-   - Create one for CI/CD (e.g., `github-actions`)
-   - Create one per service (e.g., `cloudrun-atendente-core`)
+Or use the DigitalOcean Console to create a Droplet.
 
-4. **Grant Permissions**:
-   - CI service account needs: `Artifact Registry Writer`, `Cloud Run Admin`, `Secret Manager Accessor`
-   - Service accounts need: `Secret Manager Secret Accessor`
+### 2. Initial Server Setup
 
-### 2. Create Secrets in Secret Manager
+SSH into your Droplet and run the setup script:
 
-Go to Security → Secret Manager and create these secrets:
+```bash
+ssh root@<droplet-ip>
 
-| Secret Name | Description |
-|-------------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_KEY` | Supabase anon/public key |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key |
-| `QDRANT_URL` | Qdrant Cloud URL |
-| `QDRANT_API_KEY` | Qdrant API key |
-| `LANGFUSE_PUBLIC_KEY` | Langfuse public key |
-| `LANGFUSE_SECRET_KEY` | Langfuse secret key |
-| `GRAFANA_OTLP_HEADERS` | `Authorization=Basic <base64>` |
-| `OPENAI_API_KEY` | OpenAI API key (optional) |
-| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
-| `GOOGLE_API_KEY` | Google AI API key |
+# Clone the repo temporarily to get the setup script
+git clone https://github.com/YOUR_ORG/vizu-mono.git /tmp/vizu-setup
+chmod +x /tmp/vizu-setup/scripts/setup_server.sh
+/tmp/vizu-setup/scripts/setup_server.sh
 
-### 3. Configure GitHub Repository
+# Clean up
+rm -rf /tmp/vizu-setup
+```
 
-Go to GitHub → Repository → Settings → Secrets and variables → Actions
+The setup script will:
+- Install Docker and Docker Compose
+- Create a `vizu` deploy user
+- Configure firewall (UFW)
+- Set up automatic security updates
+- Configure Docker log rotation
 
-**Secrets** (sensitive):
-| Secret | Description |
-|--------|-------------|
-| `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_SA_KEY` | JSON key for CI service account |
+### 3. Deploy the Application
 
-**Variables** (non-sensitive):
-| Variable | Value |
-|----------|-------|
-| `GCP_REGION` | `southamerica-east1` |
-| `GAR_LOCATION` | `southamerica-east1` |
-| `GAR_REPOSITORY` | `vizu-images` |
+```bash
+# Switch to vizu user
+sudo -u vizu -i
 
-### 4. Download Service Account Key for CI
+# Clone the repository
+git clone https://github.com/YOUR_ORG/vizu-mono.git /opt/vizu
+cd /opt/vizu
 
-1. Go to IAM & Admin → Service Accounts
-2. Click on your CI service account
-3. Keys → Add Key → Create new key → JSON
-4. Copy the entire JSON content to GitHub secret `GCP_SA_KEY`
+# Create production environment file
+cp .env.production.example .env.production
+nano .env.production  # Fill in your secrets
 
-## Deployment
+# Configure your domain in Caddyfile
+nano Caddyfile  # Replace YOUR_DOMAIN with your actual domain
 
-### Automatic Deployment (CI/CD)
+# Build and start services
+docker compose -f docker-compose.prod.yml up -d --build
 
-Pushes to `main` automatically deploy to staging:
+# Check status
+docker compose -f docker-compose.prod.yml ps
+```
 
-1. Code is pushed to `main`
-2. Security scan runs (Trivy)
-3. Images are built and pushed to Artifact Registry
-4. Services are deployed to Cloud Run
-5. Health checks validate deployment
-6. On failure, automatic rollback executes
+### 4. Verify Deployment
 
-### Manual Deployment
+```bash
+# Check service health
+./scripts/deploy.sh health
 
-Trigger via GitHub Actions:
+# View logs
+./scripts/deploy.sh logs
 
-1. Go to Actions → "Deploy to Cloud Run"
-2. Click "Run workflow"
-3. Select service and environment
-4. Click "Run workflow"
+# Check specific service
+docker compose -f docker-compose.prod.yml logs -f atendente_core
+```
 
-## Monitoring with Grafana Cloud
+## Configuration
 
-### OTLP Configuration
+### Environment Variables
 
-Services send traces and metrics to Grafana Cloud via OTLP:
+Copy `.env.production.example` to `.env.production` and fill in:
 
-- **Endpoint**: `https://otlp-gateway-prod-sa-east-1.grafana.net/otlp`
-- **Auth**: Basic auth with your Grafana Cloud instance ID and API key
+```bash
+# Database (Supabase)
+DATABASE_URL=postgresql://postgres.[ref]:[pass]@...
+SUPABASE_URL=https://[ref].supabase.co
+SUPABASE_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
 
-### Setting up Grafana Dashboards
+# Vector DB (Qdrant Cloud)
+QDRANT_URL=https://xxx.cloud.qdrant.io:6333
+QDRANT_API_KEY=...
 
-1. Go to Grafana Cloud → Dashboards
-2. Import or create dashboards for:
-   - Service health overview (from OTLP metrics)
-   - Request latency (p50, p95, p99)
-   - Error rates by service
-   - Trace explorer (Tempo)
+# LLM Provider
+LLM_PROVIDER=google
+GOOGLE_API_KEY=...
 
-### Logs with Loki
+# Observability
+LANGFUSE_HOST=https://us.cloud.langfuse.com
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
 
-Services output JSON logs compatible with Loki. To collect:
+# Grafana OTLP (generate base64: echo -n "instanceId:apiKey" | base64)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-sa-east-1.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64>
 
-1. Set up Cloud Run log routing to Loki, OR
-2. Use Grafana Agent in sidecar mode, OR
-3. View logs directly in Cloud Run console
+# Domain
+DOMAIN=api.yourdomain.com
+```
 
-### Health Endpoints
+### Caddy Configuration
 
-Each service exposes:
+Edit `Caddyfile` to set your domain:
 
-| Endpoint | Purpose |
-|----------|---------|
-| `/health` | Comprehensive health check (for monitoring) |
-| `/ready` | Readiness probe (for load balancers) |
-| `/live` | Liveness probe (for orchestrators) |
-| `/metrics` | Basic metrics |
-
-Example health check response:
-
-```json
-{
-  "status": "healthy",
-  "service": "atendente_core",
-  "version": "abc123",
-  "environment": "production",
-  "timestamp": "2025-12-09T10:30:00Z",
-  "uptime_seconds": 3600.5,
-  "checks": {
-    "database": {"status": "ok", "duration_ms": 12.5},
-    "redis": {"status": "ok", "duration_ms": 3.2}
-  }
+```caddyfile
+api.yourdomain.com {
+    handle /chat* {
+        reverse_proxy atendente_core:8000
+    }
+    # ... rest of config
 }
 ```
 
-### Alerting
+Caddy will automatically obtain and renew Let's Encrypt certificates.
 
-Configure alerts for:
+## Operations
 
-1. **Service availability**: `/ready` returns non-200 for >1 minute
-2. **Error rate**: >1% 5xx errors over 5 minutes
-3. **Latency**: p95 latency >2s over 5 minutes
-4. **Memory**: Container memory >80% for 5 minutes
-5. **Security**: Any critical vulnerability detected
+### Deployment Script
 
-## Database Migrations
-
-### Automatic (Recommended)
-
-Migrations run automatically after production deployments via the `migrations` job in the CI workflow.
-
-### Manual
+Use `scripts/deploy.sh` for common operations:
 
 ```bash
-# Via Cloud Run Job
-gcloud run jobs execute db-migrations --region=$REGION --wait
+# Full deployment (pull, build, restart)
+./scripts/deploy.sh deploy
 
-# Or locally with Supabase CLI
-cd libs/vizu_db_connector
-supabase db push --linked
+# Just pull latest code
+./scripts/deploy.sh pull
+
+# Build containers
+./scripts/deploy.sh build
+
+# Restart services
+./scripts/deploy.sh restart
+
+# View all logs
+./scripts/deploy.sh logs
+
+# View specific service logs
+./scripts/deploy.sh logs atendente_core
+
+# Check status
+./scripts/deploy.sh status
+
+# Health check all services
+./scripts/deploy.sh health
+
+# Clean up unused Docker resources
+./scripts/deploy.sh cleanup
 ```
 
-## Rollback Procedures
-
-### Automatic Rollback
-
-If health checks fail after deployment, the CI workflow automatically rolls back to the previous revision.
-
-### Manual Rollback
+### Manual Docker Commands
 
 ```bash
-# List revisions
-gcloud run revisions list --service=atendente_core-production --region=$REGION
+cd /opt/vizu
 
-# Route traffic to previous revision
-gcloud run services update-traffic atendente_core-production \
-  --region=$REGION \
-  --to-revisions=atendente_core-production-00042-xyz=100
+# Start services
+docker compose -f docker-compose.prod.yml up -d
+
+# Stop services
+docker compose -f docker-compose.prod.yml down
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# Rebuild single service
+docker compose -f docker-compose.prod.yml up -d --build atendente_core
+
+# Shell into container
+docker exec -it vizu_atendente_core /bin/bash
+
+# View resource usage
+docker stats
 ```
 
-## Incident Response
+### Updating the Application
 
-### Service Down
+```bash
+cd /opt/vizu
 
-1. Check Cloud Run console for errors
-2. Check Datadog for traces/logs
-3. If needed, rollback to previous revision
-4. Investigate root cause
+# Pull latest changes
+git pull origin main
 
-### Database Issues
+# Rebuild and restart
+docker compose -f docker-compose.prod.yml up -d --build
 
-1. Check Supabase dashboard
-2. Review connection pool metrics
-3. Check for long-running queries
-4. Scale connection pool if needed
+# Or use the deploy script
+./scripts/deploy.sh deploy
+```
 
-### Security Incident
+## Monitoring
 
-1. Rotate compromised secrets immediately
-2. Update secrets in Secret Manager
-3. Redeploy affected services
-4. Review access logs
-5. Document incident
+### Grafana Cloud
 
-## Environment Variables Reference
+Traces and metrics are sent to Grafana Cloud via OTLP:
 
-See `.env.production.example` for the complete list of environment variables. Key categories:
+1. Log into Grafana Cloud
+2. Go to Explore → Select your datasource
+3. Query by service: `service.name="vizu-prod"`
 
-- **Database**: `DATABASE_URL`, `SUPABASE_*`
-- **Cache**: `REDIS_URL`
-- **LLM**: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`
-- **Observability**: `DD_*`, `LANGFUSE_*`, `OTEL_*`
-- **Auth**: `MCP_AUTH_GOOGLE_*`, `SUPABASE_JWT_SECRET`
+### Langfuse
+
+LLM traces are sent to Langfuse:
+
+1. Log into Langfuse
+2. View traces under your project
+3. Filter by session, user, or model
+
+### Server Monitoring
+
+```bash
+# Resource usage
+htop
+
+# Disk usage
+df -h
+ncdu /opt/vizu
+
+# Docker logs
+docker compose -f docker-compose.prod.yml logs --tail=100
+
+# System logs
+journalctl -u docker -f
+```
+
+## Troubleshooting
+
+### Service Won't Start
+
+```bash
+# Check logs
+docker compose -f docker-compose.prod.yml logs <service-name>
+
+# Check if port is in use
+sudo lsof -i :<port>
+
+# Verify environment
+docker compose -f docker-compose.prod.yml config
+```
+
+### SSL Certificate Issues
+
+Caddy handles SSL automatically. If issues:
+
+```bash
+# Check Caddy logs
+docker compose -f docker-compose.prod.yml logs caddy
+
+# Verify DNS resolution
+dig api.yourdomain.com
+
+# Ensure ports 80/443 are open
+sudo ufw status
+```
+
+### Out of Memory
+
+```bash
+# Check memory usage
+free -h
+docker stats
+
+# Increase swap (temporary)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+### Database Connection Issues
+
+```bash
+# Test connection from container
+docker exec vizu_atendente_core python -c "
+import os
+from sqlalchemy import create_engine
+engine = create_engine(os.environ['DATABASE_URL'])
+conn = engine.connect()
+print('Connected!')
+conn.close()
+"
+```
 
 ## Security Checklist
 
-Before going live:
+- [ ] SSH keys configured, password auth disabled
+- [ ] Firewall (UFW) enabled, only 22/80/443 open
+- [ ] `.env.production` has correct permissions (`chmod 600`)
+- [ ] Fail2ban running
+- [ ] Automatic security updates enabled
+- [ ] HTTPS working (Caddy auto-provisioned)
+- [ ] No secrets in git history
 
-- [ ] All secrets in Secret Manager (none in code/images)
-- [ ] Trivy scans passing (no critical vulnerabilities)
-- [ ] Service accounts have minimal permissions
-- [ ] Network policies restrict unnecessary traffic
-- [ ] Audit logging enabled
-- [ ] Backup strategy documented and tested
-- [ ] Incident response plan documented
-- [ ] Team has access to monitoring dashboards
+## Backup & Recovery
+
+### Database
+
+Supabase handles backups automatically. For manual backup:
+
+```bash
+# Export via Supabase Dashboard
+# Or use pg_dump with your connection string
+```
+
+### Application Data
+
+```bash
+# Backup HuggingFace cache (optional)
+docker run --rm -v vizu_huggingface_cache:/data -v $(pwd):/backup \
+  alpine tar cvf /backup/hf-cache-backup.tar /data
+```
+
+## Scaling
+
+### Vertical Scaling
+
+Resize your Droplet via DigitalOcean Console:
+1. Power off Droplet
+2. Resize to larger plan
+3. Power on
+
+### Horizontal Scaling (Future)
+
+For high availability, consider:
+- Multiple Droplets behind a Load Balancer
+- DigitalOcean Kubernetes (DOKS)
+- Managed database (Supabase already handles this)

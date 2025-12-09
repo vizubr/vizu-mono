@@ -1,0 +1,25 @@
+# Trivy ignore file
+# Add patterns here to exclude false positives from security scans
+
+# Test files with mock credentials (these are intentional)
+**/tests/**
+**/test_*.py
+**/*_test.py
+**/conftest.py
+
+# Example/template files
+**/*.example
+**/*.example.*
+**/example/**
+
+# Documentation
+**/docs/**
+**/*.md
+
+# Development tools
+**/ferramentas/**
+**/.venv/**
+**/node_modules/**
+
+# Langfuse submodule (external dependency)
+langfuse/**

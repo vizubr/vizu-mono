@@ -93,14 +93,21 @@ class VizuDBConnector:
 
     # --- Conversas / Mensagens ---
     async def create_or_get_conversa(
-        self, session_id: str | None, cliente_final_id: int | None = None
+        self, session_id: str | None, cliente_final_id: int | None = None,
+        cliente_vizu_id: str | None = None
     ) -> str:
         """
         Cria uma conversa (ou retorna a existente) mapeada pelo `session_id`.
         Retorna o UUID da conversa (como string).
+
+        Args:
+            session_id: Identificador da sessão
+            cliente_final_id: ID do cliente final (opcional)
+            cliente_vizu_id: ID do cliente Vizu (obrigatório para RLS)
         """
         with self._get_db() as db:
             from vizu_models import Conversa
+            import uuid
 
             if session_id:
                 existente = (
@@ -109,7 +116,19 @@ class VizuDBConnector:
                 if existente:
                     return str(existente.id)
 
-            nova = Conversa(session_id=session_id, cliente_final_id=cliente_final_id)
+            # Parse UUID if provided as string
+            cid = None
+            if cliente_vizu_id:
+                try:
+                    cid = uuid.UUID(cliente_vizu_id) if isinstance(cliente_vizu_id, str) else cliente_vizu_id
+                except Exception:
+                    raise ValueError(f"cliente_vizu_id inválido: {cliente_vizu_id}")
+
+            nova = Conversa(
+                session_id=session_id,
+                cliente_final_id=cliente_final_id,
+                cliente_vizu_id=cid
+            )
             db.add(nova)
             db.commit()
             db.refresh(nova)

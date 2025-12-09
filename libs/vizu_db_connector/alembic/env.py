@@ -84,8 +84,10 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            version_table="alembic_version",
+            version_table_schema=None,
             version_table_pk=False,
-            version_num_type=String(128),
+            version_num_type=String(255),
         )
 
         with context.begin_transaction():

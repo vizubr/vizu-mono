@@ -37,8 +37,8 @@ def run_migrations():
         # then have the runner apply `upgrade head` here. Autogenerating at runtime
         # causes non-deterministic revisions and can fail when templates or imports
         # differ between environments.
-        print("INFO: Upgrading to head...")
-        alembic_main(["--config", alembic_cfg, "upgrade", "head"])
+        print("INFO: Upgrading to heads...")
+        alembic_main(["--config", alembic_cfg, "upgrade", "heads"])
         print("SUCESSO: Migrações concluídas.")
     except Exception as e:
         print(f"ERRO: Falha ao executar migrações do Alembic: {e}")

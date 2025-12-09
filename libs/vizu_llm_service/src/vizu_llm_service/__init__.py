@@ -46,6 +46,18 @@ from .prompt_service import (
     get_prompt_service,
     get_prompt,
 )
+from .text_to_sql import (
+    TextToSqlPrompt,
+    get_text_to_sql_prompt,
+)
+from .text_to_sql_config import (
+    TextToSqlLLMConfig,
+    TextToSqlLLMCall,
+    TextToSqlLLMResponse,
+    get_llm_call,
+    LLMProvider as ConfigLLMProvider,
+    LLMModel,
+)
 
 __all__ = [
     # Main API
@@ -58,6 +70,14 @@ __all__ = [
     "LangfusePromptClient",
     "get_prompt_service",
     "get_prompt",
+    # Text-to-SQL (Phase 1 Refactoring)
+    "TextToSqlPrompt",
+    "get_text_to_sql_prompt",
+    "TextToSqlLLMConfig",
+    "TextToSqlLLMCall",
+    "TextToSqlLLMResponse",
+    "get_llm_call",
+    "LLMModel",
     # Langfuse
     "get_langfuse_callback",
     "get_base_callbacks",

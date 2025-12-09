@@ -37,7 +37,7 @@ class VizuQdrantClient:
     Uso recomendado: usar get_qdrant_client() para obter instância singleton.
     """
     def __init__(self):
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        qdrant_url = os.getenv("QDRANT_URL_PROD", "http://localhost:6333")
         qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
         self.client = QdrantClient(

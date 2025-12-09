@@ -99,6 +99,35 @@ make shell     # Acessar container
 
 ## 📚 Documentação
 
+### Text-to-SQL (Phase 0 & 1)
+- **[Phase 0 Completion](docs/PHASE_0_COMPLETION_REPORT.md)** - Core infrastructure (schema introspection, RLS audit, SQL validation)
+- **[Phase 1 Summary](docs/PHASE_1_COMPLETION_SUMMARY.md)** - Prompt template, builder, LLM config, validator
+- **[Phase 1→2 Integration](docs/PHASE_1_TO_PHASE_2_INTEGRATION.md)** - Preparation for Phase 2 execution
+- **[Phase 1 Deliverables](docs/PHASE_1_DELIVERABLES_MANIFEST.md)** - Complete inventory of all Phase 1 files
+
+### Other Documentation
 - [Troubleshooting](docs/troubleshooting_session_2024_12_02.md)
 - [Migrations](MIGRATIONS.md)
 - [FastMCP](Fast_MCP.md)
+
+### Phase 1 Components
+
+**Location**: `libs/vizu_prompt_management/`, `libs/vizu_llm_service/`, `libs/vizu_sql_factory/`
+
+```python
+# Import Phase 1 components
+from vizu_prompt_management import TextToSqlPromptBuilder, get_prompt_builder
+from vizu_llm_service import TextToSqlLLMConfig, TextToSqlLLMCall, get_llm_call
+from vizu_sql_factory import ExemplarValidator, get_validator
+
+# Usage (Phase 2: will integrate into sql_tool)
+builder = get_prompt_builder()
+prompt = await builder.build_from_parts(
+    question="How many customers?",
+    tenant_id="tenant-123",
+    role="analyst"
+)
+
+llm_call = get_llm_call()
+response = await llm_call.invoke(prompt)
+```

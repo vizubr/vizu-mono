@@ -12,10 +12,12 @@ import json
 from datetime import datetime, timedelta
 
 import httpx
+import os
 
-MCP_URL = "http://localhost:8006/mcp"
-API_KEY = "0b0722c0-ca6a-4756-a924-feec0828d79c"
-CLIENTE_ID = "83c94590-ca01-4991-8cbd-18e016c64222"
+# Use environment variables for sensitive values. Keep defaults non-sensitive placeholders.
+MCP_URL = os.getenv("MCP_URL", "http://localhost:8006/mcp")
+API_KEY = os.getenv("TEST_GOOGLE_API_KEY", "<set TEST_GOOGLE_API_KEY in .env or CI>")
+CLIENTE_ID = os.getenv("TEST_CLIENTE_ID", "<set TEST_CLIENTE_ID in .env or CI>")
 
 async def call_mcp_tool(tool_name: str, arguments: dict) -> dict:
     """Call an MCP tool via HTTP."""

@@ -55,7 +55,10 @@ class ToolRegistry:
         "executar_sql_agent": ToolMetadata(
             name="executar_sql_agent",
             category=ToolCategory.SQL,
-            description="Executa consultas em dados estruturados via SQL Agent",
+            description=(
+                "Executes SQL queries on structured data (products, orders, inventory). "
+                "Only requires 'query' parameter - client_id is auto-injected."
+            ),
             tier_required=TierLevel.SME,
             requires_confirmation=False,
             tags=["sql", "database", "analytics"],

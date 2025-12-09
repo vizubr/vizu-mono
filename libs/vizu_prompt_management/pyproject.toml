@@ -18,6 +18,7 @@ jinja2 = "^3.1.0"
 # Vizu dependencies
 vizu_models = {path = "../vizu_models", develop = true}
 vizu_db_connector = {path = "../vizu_db_connector", develop = true}
+vizu_sql_factory = {path = "../vizu_sql_factory", develop = true}
 
 # Optional MCP integration
 fastmcp = {version = "^2.11.0", optional = true}

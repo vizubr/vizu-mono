@@ -57,6 +57,12 @@ from .knowledge_base_config import (
     KnowledgeBaseConfigRead,
     KnowledgeBaseConfigUpdate,
 )
+from .sql_schema_config import (
+    SqlTableConfig,
+    SqlTableConfigCreate,
+    SqlTableConfigRead,
+    SqlTableConfigUpdate,
+)
 
 # Agent Types (shared across all agents/LangGraph flows)
 from .agent_types import (
@@ -174,6 +180,11 @@ __all__ = [
     "KnowledgeBaseConfigCreate",
     "KnowledgeBaseConfigRead",
     "KnowledgeBaseConfigUpdate",
+    # SQL Schema Config (Text-to-SQL semantic context)
+    "SqlTableConfig",
+    "SqlTableConfigCreate",
+    "SqlTableConfigRead",
+    "SqlTableConfigUpdate",
     # Agent Types (shared across all agents)
     "ElicitationType",
     "ElicitationOption",

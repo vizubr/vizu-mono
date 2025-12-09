@@ -559,14 +559,14 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "postgrest"
-version = "2.24.0"
+version = "2.25.0"
 description = "PostgREST client for Python. This library provides an ORM interface to PostgREST."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "postgrest-2.24.0-py3-none-any.whl", hash = "sha256:2127b7ff70c3e917791c17d4adfe36d1b721d5999eeda9d4ad3862d1bb6d15ae"},
-    {file = "postgrest-2.24.0.tar.gz", hash = "sha256:2b19a9f44ac06bea8f9fc936f6a609a66a4b3ce10e87f88ff59935e64a97578c"},
+    {file = "postgrest-2.25.0-py3-none-any.whl", hash = "sha256:e31e960aa12a1c76e439c0cf3f07abb81aa6087c244a29ca6d290b1504a86554"},
+    {file = "postgrest-2.25.0.tar.gz", hash = "sha256:cfbec77ac2d93c1fb167a0574f409530715cb6cf7314f9a767a489803801948a"},
 ]
 
 [package.dependencies]
@@ -954,14 +954,14 @@ cli = ["click (>=5.0)"]
 
 [[package]]
 name = "realtime"
-version = "2.24.0"
+version = "2.25.0"
 description = ""
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "realtime-2.24.0-py3-none-any.whl", hash = "sha256:fd1b335caf178deaf99c7deae99498c9b820ebfc10522e44ad8c341121d1f230"},
-    {file = "realtime-2.24.0.tar.gz", hash = "sha256:eaf6e2d298473ffb093c25f1ed12f479cb095ae7a59df699bbea9f11c68a087a"},
+    {file = "realtime-2.25.0-py3-none-any.whl", hash = "sha256:42e788933be521d8754824130ddcf92a62b168b67ba75e0d6ef8d5fd92c66ee8"},
+    {file = "realtime-2.25.0.tar.gz", hash = "sha256:faafe9a74e3d31febe402672edde9067f509c89cf2adf25d1062694a45821060"},
 ]
 
 [package.dependencies]
@@ -971,14 +971,14 @@ websockets = ">=11,<16"
 
 [[package]]
 name = "storage3"
-version = "2.24.0"
+version = "2.25.0"
 description = "Supabase Storage client for Python."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "storage3-2.24.0-py3-none-any.whl", hash = "sha256:189364923c3a3279af863f2e5170700eddd45c7d861bbd360aebc40b6361f1a7"},
-    {file = "storage3-2.24.0.tar.gz", hash = "sha256:4f26d2866ef6eb9349570e2ec70657e7e3cc884f419c58e64d99317891013743"},
+    {file = "storage3-2.25.0-py3-none-any.whl", hash = "sha256:c9e98da1fe834cb7107bfdd34944d49bd54767043b79e459af87bb20810457fb"},
+    {file = "storage3-2.25.0.tar.gz", hash = "sha256:b0fbb4a4a7fe6ff2be60f849e1c86cde15acfa301354e62712b2e1d53a17dd54"},
 ]
 
 [package.dependencies]
@@ -1006,34 +1006,34 @@ test = ["pylint", "pytest", "pytest-black", "pytest-cov", "pytest-pylint"]
 
 [[package]]
 name = "supabase"
-version = "2.24.0"
+version = "2.25.0"
 description = "Supabase client for Python."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "supabase-2.24.0-py3-none-any.whl", hash = "sha256:44adea019a0964529a3021f45f25c15e719dff8e5d726634644df789eb23f64f"},
-    {file = "supabase-2.24.0.tar.gz", hash = "sha256:9a1c0a56cc1c1caea4fc78354fd81b764f73bc4cd86932920be8ad9f127bc5ca"},
+    {file = "supabase-2.25.0-py3-none-any.whl", hash = "sha256:0d0da49995aa03cda9851482e22fc608bcd4b88e7797d4f00664b82fe70be8d7"},
+    {file = "supabase-2.25.0.tar.gz", hash = "sha256:ee220300c91c5ca918bec34d2b91b74ccdb02f2db5b5b65cc9946f231b898fc3"},
 ]
 
 [package.dependencies]
 httpx = ">=0.26,<0.29"
-postgrest = "2.24.0"
-realtime = "2.24.0"
-storage3 = "2.24.0"
-supabase-auth = "2.24.0"
-supabase-functions = "2.24.0"
+postgrest = "2.25.0"
+realtime = "2.25.0"
+storage3 = "2.25.0"
+supabase-auth = "2.25.0"
+supabase-functions = "2.25.0"
 
 [[package]]
 name = "supabase-auth"
-version = "2.24.0"
+version = "2.25.0"
 description = "Python Client Library for Supabase Auth"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "supabase_auth-2.24.0-py3-none-any.whl", hash = "sha256:9229d1d13cd21abc082ed81602226d4f8d03422f3e73d22412f55f24c374bc6f"},
-    {file = "supabase_auth-2.24.0.tar.gz", hash = "sha256:8b3ed605ce8cfa308e88620ccf9dc42c8780270353968e4b49853fe9a7849ec9"},
+    {file = "supabase_auth-2.25.0-py3-none-any.whl", hash = "sha256:6cb294961e614076f99517cb7a5c01925239dd050f77a223a867b1652f3a9771"},
+    {file = "supabase_auth-2.25.0.tar.gz", hash = "sha256:462ed52603712c324925fbbb757b10aa565c57c8d36d61500081ba6d1b425853"},
 ]
 
 [package.dependencies]
@@ -1043,14 +1043,14 @@ pyjwt = {version = ">=2.10.1", extras = ["crypto"]}
 
 [[package]]
 name = "supabase-functions"
-version = "2.24.0"
+version = "2.25.0"
 description = "Library for Supabase Functions"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "supabase_functions-2.24.0-py3-none-any.whl", hash = "sha256:b93d79ffc446cb96faf03be550b6991847394064feec3ebf21954d3aff836d11"},
-    {file = "supabase_functions-2.24.0.tar.gz", hash = "sha256:d98777b6433c2d916f135906685b73460f26e16a3d0c167dda0ae03e1a1f9b59"},
+    {file = "supabase_functions-2.25.0-py3-none-any.whl", hash = "sha256:5c32cb8aa35381d820f7c249b548233d8861e0c0f22c467015420a808f29c720"},
+    {file = "supabase_functions-2.25.0.tar.gz", hash = "sha256:5789216b7b421fe3708d6662e9bc0741da855abe751888a877a276f3f2e13f53"},
 ]
 
 [package.dependencies]

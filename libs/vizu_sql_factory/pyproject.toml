@@ -15,12 +15,14 @@ python = "^3.11"
 langchain-core = ">=0.3.0"
 langchain-community = ">=0.3.0"
 sqlalchemy = "^2.0.31"
+sqlglot = "^24.0.0"  # Phase 2: SQL parsing and transformation
 # (langchain e langchain-openai removidos)
 
 # Dependências locais
 vizu_llm_service = {path = "../../libs/vizu_llm_service", develop = true}
 vizu_context_service = {path = "../../libs/vizu_context_service", develop = true}
 vizu_models = {path = "../../libs/vizu_models", develop = true}
+vizu_supabase_client = {path = "../../libs/vizu_supabase_client", develop = true}  # Phase 3: Execution
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"

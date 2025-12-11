@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     environment: production
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,24 +46,24 @@ jobs:
           # SSH into droplet and deploy
           ssh -i ~/.ssh/deploy_key ${DROPLET_USER}@${DROPLET_IP} << 'ENDSSH'
             set -e
-            
+
             cd ${{ env.DEPLOY_PATH }}
-            
+
             echo "📥 Pulling latest code..."
             git pull origin main
-            
+
             echo "🔐 Logging into GitHub Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
+
             echo "📦 Pulling latest images..."
             docker compose -f docker-compose.prod.yml pull
-            
+
             echo "🚀 Restarting services..."
             docker compose -f docker-compose.prod.yml up -d
-            
+
             echo "🧹 Cleaning up old images..."
             docker image prune -f
-            
+
             echo "✅ Deployment complete!"
             docker compose -f docker-compose.prod.yml ps
           ENDSSH
@@ -75,20 +75,20 @@ jobs:
         run: |
           # Wait for services to start
           sleep 30
-          
+
           # Run health checks via SSH
           ssh -i ~/.ssh/deploy_key ${DROPLET_USER}@${DROPLET_IP} << 'ENDSSH'
             cd /opt/vizu
-            
+
             echo "🏥 Running health checks..."
-            
+
             # Check each service
-            services=("atendente_core:8000" "clients_api:8000" "tool_pool_api:9000")
-            
+            services=("atendente_core:8000" "tool_pool_api:9000" "embedding_service:11435")
+
             for svc in "${services[@]}"; do
               name="${svc%%:*}"
               port="${svc##*:}"
-              
+
               if docker exec "vizu_${name}" curl -sf "http://localhost:${port}/health" > /dev/null 2>&1; then
                 echo "✅ ${name} is healthy"
               else

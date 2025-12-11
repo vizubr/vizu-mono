@@ -11,7 +11,8 @@ x-common-env: &common-env
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
   EMBEDDING_SERVICE_URL: http://embedding_service:11435
   QDRANT_URL: http://qdrant_db:6333
-  BASE_URL: "http://clients_api:8000/api/v1"
+  # Internal API base (atendente_core is the main entry point)
+  BASE_URL: "http://atendente_core:8000"
 
 x-atendente-env: &atendente-env
   REDIS_URL: redis://redis:6379/0
@@ -109,27 +110,6 @@ services:
       # ou usamos required: false nas versões mais novas do Compose.
       # Para simplificar, deixamos sem depends_on do banco, a app tenta reconectar.
 
-  clients_api:
-    container_name: clients_api
-    platform: linux/amd64
-    build:
-      context: .
-      dockerfile: ./services/clients_api/Dockerfile
-    ports:
-      - "8005:8000"
-    volumes:
-      - ./services/clients_api/src:/app/src
-      - ./libs:/app/libs
-    environment:
-      <<: *common-env
-      PYTHONPATH: /app/src:/app/libs/vizu_db_connector/src:/app/libs/vizu_models/src
-      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
-    dns:
-      - 8.8.8.8
-
-  # ... (Mantenha os outros serviços como file_upload, analytics, etc da mesma forma)
-  # Apenas lembre de usar <<: *common-env para injetar o DATABASE_URL correto
-
   # =========================================
   # INFRAESTRUTURA DE APOIO (Sempre ativa)
   # =========================================
@@ -182,30 +162,6 @@ services:
          condition: service_healthy
        atendente_core: # Garante que a API alvo já iniciou antes de rodar os testes
         condition: service_started
-
-  clientes_finais_api:
-    container_name: vizu_clientes_finais_api
-    platform: linux/amd64
-    build:
-      context: .
-      dockerfile: ./services/clientes_finais_api/Dockerfile
-    ports:
-      # Usei a porta 8007 para evitar conflito com a clients_api (8005) e tool_pool (8006)
-      - "8007:8000"
-    volumes:
-      # Mapeamento ajustado para a estrutura do novo Dockerfile (usuário 'appuser')
-      # Monta o código fonte diretamente onde o Dockerfile o copiou
-      - ./services/clientes_finais_api/src/clientes_finais_api:/home/appuser/app/clientes_finais_api
-      # Monta as bibliotecas compartilhadas
-      - ./libs:/home/appuser/app/libs
-    environment:
-      <<: *common-env
-      # Garante que o PYTHONPATH inclua tanto a app quanto as libs, conforme definido no Dockerfile
-      PYTHONPATH: /home/appuser/app/clientes_finais_api:/home/appuser/app/libs/vizu_models/src
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 
   qdrant_db:
     container_name: vizu_qdrant_dev

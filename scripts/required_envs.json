@@ -18,10 +18,6 @@
         "REDIS_URL",
         "CREDENTIALS_ENCRYPTION_KEY"
     ],
-    "clients_api": [
-        "DATABASE_URL",
-        "CREDENTIALS_ENCRYPTION_KEY"
-    ],
     "data_ingestion_api": [
         "DATABASE_URL",
         "CREDENTIALS_ENCRYPTION_KEY"
@@ -30,5 +26,14 @@
         "DATABASE_URL",
         "REDIS_URL",
         "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "vendas_agent": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "CREDENTIALS_ENCRYPTION_KEY"
+    ],
+    "file_upload_api": [
+        "DATABASE_URL",
+        "SUPABASE_KEY"
     ]
 }

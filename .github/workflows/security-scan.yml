@@ -15,10 +15,10 @@ env:
   # Services to scan (add more as needed)
   SERVICES: |
     atendente_core
-    clients_api
     tool_pool_api
     analytics_api
     file_upload_api
+    embedding_service
 
 jobs:
   # =========================================================================
@@ -60,10 +60,10 @@ jobs:
       matrix:
         service:
           - atendente_core
-          - clients_api
           - tool_pool_api
           - analytics_api
           - file_upload_api
+          - embedding_service
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,25 +153,25 @@ jobs:
         run: |
           echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.filesystem-scan.result }}" == "success" ]; then
             echo "✅ Filesystem scan passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Filesystem scan failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.image-scan.result }}" == "success" ]; then
             echo "✅ Image scans passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Image scans failed - check individual service results" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ "${{ needs.sbom-scan.result }}" == "success" ]; then
             echo "✅ SBOM/dependency scan passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ SBOM/dependency scan failed" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "See the Security tab for detailed findings." >> $GITHUB_STEP_SUMMARY
 

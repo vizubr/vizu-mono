@@ -44,6 +44,12 @@ help:
 	@echo "   make build           Rebuild all images (no cache)"
 	@echo "   make build-s         Rebuild SERVICE=<name> only"
 	@echo ""
+	@echo "☁️  CLOUD RUN DEPLOYMENT"
+	@echo "   make setup-gcp       Install gcloud CLI (team setup)"
+	@echo "   make compose-cloud   Start 3-group architecture (local test)"
+	@echo "   make compose-cloud-down  Stop 3-group architecture"
+	@echo "   make image-list      List published images in Artifact Registry"
+	@echo ""
 	@echo "🗄️  DATABASE & MIGRATIONS"
 	@echo "   make migrate         Apply migrations (local Docker)"
 	@echo "   make migrate-prod    Apply migrations (Supabase - with confirmation)"
@@ -103,7 +109,7 @@ help:
 # DOCKER COMPOSE
 # =============================================================================
 
-.PHONY: up down restart logs ps build build-s
+.PHONY: up down restart logs ps build build-s compose-cloud compose-cloud-down
 
 up:
 	@echo "🚀 Starting all services..."
@@ -138,6 +144,24 @@ build-s:
 	$(COMPOSE) build --no-cache $(SERVICE)
 	$(COMPOSE) up -d $(SERVICE)
 	@echo "✅ $(SERVICE) rebuilt and started"
+
+# =============================================================================
+# CLOUD RUN - LOCAL 3-GROUP ARCHITECTURE
+# =============================================================================
+
+compose-cloud:
+	@echo "🚀 Starting 3-group Cloud Run architecture (local)..."
+	@echo "   GROUP 1: agents-pool (ports 8003-8006)"
+	@echo "   GROUP 2: workers-pool (ports 8007-8009)"
+	@echo "   GROUP 3: embedding-service (port 11435)"
+	$(COMPOSE) -f docker-compose.cloud-run.yml up --build -d
+	@echo "✅ Cloud Run architecture running"
+	@echo "📝 Test endpoints: curl http://localhost:8003/health"
+
+compose-cloud-down:
+	@echo "🛑 Stopping Cloud Run architecture..."
+	$(COMPOSE) -f docker-compose.cloud-run.yml down
+	@echo "✅ Stopped"
 
 # =============================================================================
 # DATABASE & MIGRATIONS
@@ -234,7 +258,7 @@ test-s:
 
 test-all:
 	@echo "🧪 Running all tests..."
-	@for svc in atendente_core clients_api clientes_finais_api tool_pool_api vendas_agent support_agent; do \
+	@for svc in atendente_core tool_pool_api vendas_agent support_agent; do \
 		echo "Testing $$svc..."; \
 		cd services/$$svc && poetry run pytest tests/ -v --tb=short 2>/dev/null || true; \
 		cd ../..; \
@@ -572,7 +596,23 @@ clean:
 # OBSERVABILITY
 # =============================================================================
 
-.PHONY: langfuse-check langfuse-up langfuse-down langfuse-logs
+.PHONY: langfuse-check langfuse-up langfuse-down langfuse-logs setup-gcp image-list
+
+setup-gcp:
+	@echo "⚙️  Installing gcloud CLI for team..."
+	@chmod +x scripts/setup-gcp-cli.sh
+	@./scripts/setup-gcp-cli.sh
+
+image-list:
+	@if [ -z "$$GCP_PROJECT_ID" ]; then \
+		echo "❌ GCP_PROJECT_ID not set in .env"; \
+		echo "Run: gcloud config set project YOUR_PROJECT_ID"; \
+		exit 1; \
+	fi
+	@echo "📦 Images in Artifact Registry (us-east1-docker.pkg.dev/$$GCP_PROJECT_ID/vizu)..."
+	@gcloud artifacts docker images list us-east1-docker.pkg.dev/$$GCP_PROJECT_ID/vizu || true
+	@echo ""
+	@echo "💡 Tip: Set GCP_PROJECT_ID in .env to avoid the prompt above"
 
 langfuse-check:
 	@echo "🔍 Checking Langfuse connection..."

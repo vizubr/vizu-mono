@@ -13,10 +13,8 @@ This document covers deploying Vizu services to a DigitalOcean Droplet using Doc
 │  │   ┌─────────┐      ┌──────────────────┐                     │ │
 │  │   │  Caddy  │──────│  atendente_core  │                     │ │
 │  │   │  :80    │      │  :8000           │                     │ │
-│  │   │  :443   │──────│  clients_api     │                     │ │
-│  │   └─────────┘      │  :8000           │                     │ │
-│  │        │           │  tool_pool_api   │                     │ │
-│  │        │           │  :9000           │                     │ │
+│  │   │  :443   │──────│  tool_pool_api   │                     │ │
+│  │   └─────────┘      │  :9000           │                     │ │
 │  │        │           │  ...other svcs   │                     │ │
 │  │        │           └──────────────────┘                     │ │
 │  │        │                    │                                │ │

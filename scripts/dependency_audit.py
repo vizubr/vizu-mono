@@ -23,7 +23,7 @@ def collect_imports(path: Path):
     imports = set()
     # Only scan 'src' and 'tests' directories, explicitly skip .venv, __pycache__, etc.
     skip_dirs = {'.venv', 'venv', '.git', '__pycache__', 'node_modules', '.mypy_cache', '.pytest_cache', 'dist', 'build', '.eggs'}
-    
+
     for p in path.rglob('*.py'):
         # Skip files in excluded directories
         if any(skip in p.parts for skip in skip_dirs):
@@ -147,7 +147,7 @@ def analyze_project(dirpath: Path):
         'src', 'context_service', 'data_ingestion_worker',
     }
     stdlib_like.update(internal_patterns)
-    
+
     # Add all libs/* and services/* from the monorepo as known local packages
     for subdir in ['libs', 'services']:
         subdir_path = ROOT / subdir
@@ -194,11 +194,11 @@ def analyze_project(dirpath: Path):
             deps_normalized.add(pkg_to_import[d.lower()].lower())
         else:
             deps_normalized.add(d.replace('-', '_').lower())
-    
+
     imports_normalized = {i.replace('-', '_').lower() for i in third_party_imports}
 
     missing = sorted([i for i in imports_normalized if i not in deps_normalized])
-    
+
     # For unused, also check against the mapped import names
     unused = []
     for d in deps:
@@ -249,7 +249,7 @@ def main():
         print("  - Path dependencies that use different import names")
         print("Review the results manually before making changes.")
         print("=" * 60)
-    
+
     # Always return 0 - this audit is informational, not blocking
     return 0
 

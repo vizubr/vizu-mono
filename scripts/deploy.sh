@@ -92,20 +92,20 @@ status() {
 # Health check
 health() {
     log_step "Running health checks..."
-    
+
     services=(
         "atendente_core:8000"
-        "clients_api:8000"
-        "clientes_finais_api:8000"
         "tool_pool_api:9000"
         "analytics_api:8000"
         "embedding_service:11435"
+        "vendas_agent:8000"
+        "support_agent:8000"
     )
-    
+
     for svc in "${services[@]}"; do
         name="${svc%%:*}"
         port="${svc##*:}"
-        
+
         # Use docker exec to check from inside the network
         if docker exec "vizu_${name}" curl -sf "http://localhost:${port}/health" > /dev/null 2>&1; then
             echo -e "  ${GREEN}✓${NC} $name"

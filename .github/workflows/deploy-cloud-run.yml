@@ -18,7 +18,6 @@ on:
         type: choice
         options:
           - all
-          - clients-api
           - agents-pool
           - workers-pool
           - embedding-service
@@ -39,7 +38,7 @@ jobs:
       - id: services
         run: |
           if [ "${{ github.event.inputs.service }}" == "all" ] || [ -z "${{ github.event.inputs.service }}" ]; then
-            echo "list=clients-api agents-pool workers-pool embedding-service" >> $GITHUB_OUTPUT
+            echo "list=agents-pool workers-pool embedding-service" >> $GITHUB_OUTPUT
           else
             echo "list=${{ github.event.inputs.service }}" >> $GITHUB_OUTPUT
           fi
@@ -83,48 +82,39 @@ jobs:
           echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
       # =================================================================
-      # Build & Push for each service
+      # Build & Push for each service group
       # =================================================================
 
-      - name: "Build: clients-api"
-        if: contains(matrix.service, 'clients-api')
-        run: |
-          docker build \
-            --build-arg PYTHONPATH="/app/src:/app/libs" \
-            -t ${{ steps.image.outputs.uri }} \
-            -f services/clients_api/Dockerfile .
-          docker push ${{ steps.image.outputs.uri }}
-
-      - name: "Build: agents-pool (atendente_core + vendas_agent + support_agent)"
+      - name: "Build: agents-pool (atendente_core + tool_pool_api + vendas_agent + support_agent)"
         if: contains(matrix.service, 'agents-pool')
         run: |
-          # Build atendente_core
+          # Build atendente_core (main entry point)
           docker build \
             --build-arg PYTHONPATH="/app/services/atendente_core/src" \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/atendente-core:${{ steps.image.outputs.tag }} \
             -f services/atendente_core/Dockerfile .
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/atendente-core:${{ steps.image.outputs.tag }}
-          
-          # Build vendas_agent
-          docker build \
-            --build-arg PYTHONPATH="/app/src" \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/vendas-agent:${{ steps.image.outputs.tag }} \
-            -f services/vendas_agent/Dockerfile .
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/vendas-agent:${{ steps.image.outputs.tag }}
-          
-          # Build support_agent
-          docker build \
-            --build-arg PYTHONPATH="/app/src" \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/support-agent:${{ steps.image.outputs.tag }} \
-            -f services/support_agent/Dockerfile .
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/support-agent:${{ steps.image.outputs.tag }}
-          
+
           # Build tool_pool_api
           docker build \
             --build-arg PYTHONPATH="/app/services/tool_pool_api/src" \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/tool-pool-api:${{ steps.image.outputs.tag }} \
             -f services/tool_pool_api/Dockerfile .
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/tool-pool-api:${{ steps.image.outputs.tag }}
+
+          # Build vendas_agent
+          docker build \
+            --build-arg PYTHONPATH="/app/src" \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/vendas-agent:${{ steps.image.outputs.tag }} \
+            -f services/vendas_agent/Dockerfile .
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/vendas-agent:${{ steps.image.outputs.tag }}
+
+          # Build support_agent
+          docker build \
+            --build-arg PYTHONPATH="/app/src" \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/support-agent:${{ steps.image.outputs.tag }} \
+            -f services/support_agent/Dockerfile .
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/support-agent:${{ steps.image.outputs.tag }}
 
       - name: "Build: workers-pool"
         if: contains(matrix.service, 'workers-pool')
@@ -135,14 +125,14 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/data-ingestion-worker:${{ steps.image.outputs.tag }} \
             -f services/data_ingestion_worker/Dockerfile .
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/data-ingestion-worker:${{ steps.image.outputs.tag }}
-          
+
           # Build file_processing_worker
           docker build \
             --build-arg PYTHONPATH="/app/src" \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/file-processing-worker:${{ steps.image.outputs.tag }} \
             -f services/file_processing_worker/Dockerfile .
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/file-processing-worker:${{ steps.image.outputs.tag }}
-          
+
           # Build file_upload_api
           docker build \
             --build-arg PYTHONPATH="/app/src" \
@@ -163,26 +153,7 @@ jobs:
       # Deploy to Cloud Run
       # =================================================================
 
-      - name: "Deploy: clients-api"
-        if: contains(matrix.service, 'clients-api')
-        run: |
-          gcloud run deploy clients-api \
-            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/clients-api:${{ steps.image.outputs.tag }} \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --memory 1Gi \
-            --cpu 2 \
-            --concurrency 100 \
-            --timeout 60 \
-            --max-instances 100 \
-            --min-instances 2 \
-            --ingress internal-and-cloud-load-balancing \
-            --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO" \
-            --set-secrets "DATABASE_URL=database-url:latest,SUPABASE_KEY=supabase-key:latest,GOOGLE_API_KEY=google-api-key:latest" \
-            --quiet
-
-      - name: "Deploy: atendente-core"
+      - name: "Deploy: atendente-core (main entry point)"
         if: contains(matrix.service, 'agents-pool')
         run: |
           gcloud run deploy atendente-core \
@@ -196,9 +167,9 @@ jobs:
             --timeout 3600 \
             --max-instances 50 \
             --min-instances 1 \
-            --ingress internal-and-cloud-load-balancing \
+            --ingress all \
             --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO" \
-            --set-secrets "DATABASE_URL=database-url:latest,GOOGLE_API_KEY=google-api-key:latest,LANGFUSE_SECRET_KEY=langfuse-secret:latest" \
+            --set-secrets "DATABASE_URL=database-url:latest,GOOGLE_API_KEY=google-api-key:latest,LANGFUSE_SECRET_KEY=langfuse-secret:latest,SUPABASE_KEY=supabase-key:latest" \
             --quiet
 
       - name: "Deploy: tool-pool-api"
@@ -208,7 +179,7 @@ jobs:
             --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/tool-pool-api:${{ steps.image.outputs.tag }} \
             --region ${{ env.REGION }} \
             --platform managed \
-            --allow-unauthenticated \
+            --no-allow-unauthenticated \
             --memory 2Gi \
             --cpu 2 \
             --concurrency 5 \
@@ -219,6 +190,44 @@ jobs:
             --ingress internal \
             --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO" \
             --set-secrets "DATABASE_URL=database-url:latest" \
+            --quiet
+
+      - name: "Deploy: vendas-agent"
+        if: contains(matrix.service, 'agents-pool')
+        run: |
+          gcloud run deploy vendas-agent \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/vendas-agent:${{ steps.image.outputs.tag }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --no-allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --concurrency 10 \
+            --timeout 3600 \
+            --max-instances 20 \
+            --min-instances 0 \
+            --ingress internal \
+            --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO" \
+            --set-secrets "DATABASE_URL=database-url:latest,GOOGLE_API_KEY=google-api-key:latest" \
+            --quiet
+
+      - name: "Deploy: support-agent"
+        if: contains(matrix.service, 'agents-pool')
+        run: |
+          gcloud run deploy support-agent \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/support-agent:${{ steps.image.outputs.tag }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --no-allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --concurrency 10 \
+            --timeout 3600 \
+            --max-instances 20 \
+            --min-instances 0 \
+            --ingress internal \
+            --set-env-vars "ENVIRONMENT=production,LOG_LEVEL=INFO" \
+            --set-secrets "DATABASE_URL=database-url:latest,GOOGLE_API_KEY=google-api-key:latest" \
             --quiet
 
       - name: "Deploy: data-ingestion-worker"
@@ -259,6 +268,25 @@ jobs:
             --set-secrets "DATABASE_URL=database-url:latest" \
             --quiet
 
+      - name: "Deploy: file-upload-api"
+        if: contains(matrix.service, 'workers-pool')
+        run: |
+          gcloud run deploy file-upload-api \
+            --image ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/vizu/file-upload-api:${{ steps.image.outputs.tag }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 2 \
+            --concurrency 50 \
+            --timeout 300 \
+            --max-instances 50 \
+            --min-instances 0 \
+            --ingress all \
+            --set-env-vars "ENVIRONMENT=production" \
+            --set-secrets "DATABASE_URL=database-url:latest,SUPABASE_KEY=supabase-key:latest" \
+            --quiet
+
       - name: "Deploy: embedding-service"
         if: contains(matrix.service, 'embedding-service')
         run: |
@@ -282,7 +310,7 @@ jobs:
         run: |
           echo "## Cloud Run Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Service**: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Service Group**: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
           echo "**Image Tag**: ${{ steps.image.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "**Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
@@ -303,9 +331,9 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-cloud-sdk@v1
 
-      - name: Test clients-api health
+      - name: Test atendente-core health
         run: |
-          URL=$(gcloud run services describe clients-api --region us-east1 --format 'value(status.url)')
+          URL=$(gcloud run services describe atendente-core --region us-east1 --format 'value(status.url)')
           curl -f "$URL/health" || echo "Health check failed"
 
       - name: Test embedding-service health
@@ -313,7 +341,7 @@ jobs:
           URL=$(gcloud run services describe embedding-service --region us-east1 --format 'value(status.url)')
           curl -f "$URL/health" || echo "Health check failed"
 
-      - name: Test Pub/Sub trigger (data-ingestion-worker)
+      - name: List all deployed services
         run: |
-          echo "Verifying Pub/Sub subscriptions..."
-          gcloud pubsub subscriptions list --format="table(name)"
+          echo "### All Cloud Run Services" >> $GITHUB_STEP_SUMMARY
+          gcloud run services list --region us-east1 --format="table(name,status.url)"

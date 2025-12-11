@@ -76,7 +76,7 @@
 
         ▼                          ▼                    ▼
     EXTERNAL SERVICES (Cloud)
-    
+
     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
     │  Supabase    │  │ Qdrant Cloud │  │ Grafana      │
     │  (Database)  │  │ (Vector DB)  │  │ (Monitoring) │
@@ -86,7 +86,7 @@
     │ Realtime     │  │ search       │  │ Metrics      │
     │ Storage      │  │              │  │              │
     └──────────────┘  └──────────────┘  └──────────────┘
-    
+
     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
     │ Langfuse     │  │ Google AI    │  │ Email Svc    │
     │ (LLM traces) │  │ (Gemini API) │  │ (SendGrid    │
@@ -270,12 +270,12 @@ docker run ...
 - name: Authenticate to DO Container Registry
   run: |
     doctl registry login --expiry-seconds 600
-    
+
 - name: Build and push
   run: |
     docker build -t registry.digitalocean.com/your-username/vizu-${{ matrix.service }}:latest .
     docker push registry.digitalocean.com/your-username/vizu-${{ matrix.service }}:latest
-    
+
 - name: Deploy to Droplet
   run: |
     ssh vizu@droplet-ip "docker pull registry.digitalocean.com/your-username/vizu-*:latest"

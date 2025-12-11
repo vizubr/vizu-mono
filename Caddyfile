@@ -5,55 +5,50 @@
 # Example: api.vizu.com.br
 
 {$DOMAIN:localhost} {
-    # Main chat API
+    # Main chat API (atendente_core is the main entry point)
     handle /chat* {
         reverse_proxy atendente_core:8000
     }
-    
-    # Clients API
-    handle /api/v1/clients* {
-        reverse_proxy clients_api:8000
-    }
-    
-    # End customers API
-    handle /api/v1/clientes* {
-        reverse_proxy clientes_finais_api:8000
-    }
-    
+
     # Analytics API
     handle /api/v1/analytics* {
         reverse_proxy analytics_api:8000
     }
-    
+
     # Tool Pool / MCP
     handle /mcp* {
         reverse_proxy tool_pool_api:9000
     }
-    
+
     # Data ingestion
     handle /api/v1/ingestion* {
         reverse_proxy data_ingestion_api:8000
     }
-    
+
+    # File upload API
+    handle /api/v1/files* {
+        reverse_proxy file_upload_api:8000
+    }
+
     # Agents
     handle /api/v1/vendas* {
         reverse_proxy vendas_agent:8000
     }
-    
+
     handle /api/v1/support* {
         reverse_proxy support_agent:8000
     }
-    
+
     # Health check endpoint
     handle /health {
         respond "OK" 200
     }
-    
+
     # Default: atendente_core
     handle {
         reverse_proxy atendente_core:8000
     }
-    
+
     # Logging
     log {
         output file /data/access.log {

@@ -1,5 +1,5 @@
 # OpenTelemetry Collector Configuration for Production (Grafana Cloud)
-# 
+#
 # This configuration sends traces, metrics, and logs to Grafana Cloud's OTLP endpoint.
 # Required environment variables:
 #   - OTEL_EXPORTER_OTLP_ENDPOINT: Grafana Cloud OTLP gateway URL
@@ -60,13 +60,13 @@ exporters:
 extensions:
   health_check:
     endpoint: "0.0.0.0:13133"
-  
+
   zpages:
     endpoint: "0.0.0.0:55679"
 
 service:
   extensions: [health_check, zpages]
-  
+
   pipelines:
     traces:
       receivers: [otlp]

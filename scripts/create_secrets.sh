@@ -54,7 +54,7 @@ SECRET_KEYS=(
 for key in "${SECRET_KEYS[@]}"; do
     # Extract value from env file (handles values with special chars)
     value=$(grep "^${key}=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//' | sed 's/"$//' || true)
-    
+
     if [ -z "$value" ] || [[ "$value" == sm://* ]] || [[ "$value" == *"<"*">"* ]]; then
         echo "⏭️  Skipping $key (empty, placeholder, or already a secret ref)"
         continue

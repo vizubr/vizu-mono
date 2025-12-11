@@ -13,7 +13,7 @@ These notes help an AI coding agent be productive quickly in this monorepo. They
 - Typical runtime: each service is a Python app (3.11+) packed with Poetry and run with uvicorn in dev. Docker images copy a project-local .venv and set PYTHONPATH to include `/app/src` and `/app/libs`.
 
 2) Where to look first (important files)
-- Top-level: `docker-compose.yml` — canonical local dev composition and service names (postgres, redis, otel-collector, atendente_core, clients_api, clientes_finais_api, etc.).
+- Top-level: `docker-compose.yml` — canonical local dev composition and service names (postgres, redis, otel-collector, atendente_core, tool_pool_api, etc.).
 - Service README examples: `services/atendente_core/README.md` — explains env vars and run/test commands.
 - Dockerfile pattern: `services/atendente_core/Dockerfile` — multi-stage build, Poetry in builder, copies `.venv`, sets `PYTHONPATH`. Use this as the canonical Docker pattern for other services.
 - Shared libs: `libs/` — examples: `vizu_db_connector`, `vizu_qdrant_client`, `vizu_models`. These are referenced by services via PYTHONPATH or Poetry path deps.
